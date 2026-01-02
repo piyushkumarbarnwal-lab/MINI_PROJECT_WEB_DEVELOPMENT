@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Smart Weather Dashboard</title>
+
+<style>
+*{margin:0;padding:0;box-sizing:border-box;font-family:'Segoe UI',sans-serif;}
+body{
+min-height:100vh;display:flex;align-items:center;justify-content:center;
+color:#fff;background:linear-gradient(to right,#667eea,#764ba2);transition:1.5s;
+}
+
+.app{width:95%;max-width:1200px;display:grid;grid-template-columns:1fr 1.5fr;gap:20px;}
+.left,.right{
+background:rgba(255,255,255,.18);backdrop-filter:blur(14px);
+padding:25px;border-radius:25px;box-shadow:0 15px 40px rgba(0,0,0,.3);
+}
+
+.search-box{display:flex;margin:15px 0;}
+.search-box input{flex:1;padding:14px;border:none;border-radius:30px 0 0 30px;}
+.search-box button{padding:14px 22px;border:none;border-radius:0 30px 30px 0;background:#ff758c;color:#fff;font-weight:600;}
+.toggle-btn{margin:10px;padding:8px 18px;border:none;border-radius:20px;background:#00c6ff;color:#fff;font-weight:600;}
+
+.weather-info img{width:100px}
+.alert{
+display:none;margin:12px auto;padding:12px 22px;border-radius:18px;
+background:linear-gradient(to right,#ff512f,#dd2476);font-weight:700;
+}
+
+.graph-box{margin:10px 0;background:rgba(0,0,0,.25);border-radius:20px;padding:10px;}
+canvas{width:100%;height:220px}
+
+.day-tabs{display:flex;gap:10px;flex-wrap:wrap;margin:10px 0;}
+.day-tab{padding:8px 18px;border-radius:20px;background:rgba(0,0,0,.35);cursor:pointer;font-weight:600;}
+.day-tab.active{background:#ff758c;}
+.forecast{display:flex;gap:10px;flex-wrap:wrap;}
+.time-box{min-width:90px;background:rgba(0,0,0,.3);border-radius:14px;padding:8px;font-size:13px;text-align:center;}
+.time-box img{width:40px}
+
+/* PROFILE BADGE */
+.profile-badge{
+position:fixed;
+bottom:20px;
+right:20px;
+width:130px;
+height:130px;
+border-radius:50%;
+overflow:visible;
+border:4px solid #fff;
+box-shadow:0 15px 35px rgba(0,0,0,.45);
+background:#000;
+z-index:999;
+text-align:center;
+}
+
+.profile-badge img{
+width:100%;
+height:100%;
+object-fit:cover;
+border-radius:50%;
+}
+
+.profile-name{
+position:absolute;
+bottom:-30px;
+width:100%;
+font-size:14px;
+font-weight:700;
+color:#fff;
+text-shadow:0 2px 6px rgba(0,0,0,.6);
+}
+
+@media(max-width:900px){
+.app{grid-template-columns:1fr}
+}
+
+@media(max-width:600px){
+.profile-badge{
+width:90px;
+height:90px;
+bottom:15px;
+right:15px;
+}
+.profile-name{
+font-size:12px;
+bottom:-26px;
+}
+}
+</style>
+</head>
+
+<body>
+
+<div class="app">
+
+<div class="left">
+<h1>Weather App</h1>
+<div id="dateTime"></div>
+
+<div class="search-box">
+<input id="cityInput" placeholder="Enter city">
+<button id="searchBtn">Search</button>
+</div>
+
+<button class="toggle-btn" id="unitToggle">Switch to °F</button>
+
+<div class="alert" id="lifeAdvice"></div>
+
+<div class="weather-info">
+<h2 id="cityName">---</h2>
+<img id="weatherIcon">
+<p id="temperature"></p>
+<p id="feelsLike"></p>
+<p id="description"></p>
+<p id="humidity"></p>
+<p id="wind"></p>
+</div>
+</div>
+
+<div class="right">
+<h2>Next 24 Hours</h2>
+<div class="graph-box"><canvas id="tempGraph"></canvas></div>
+
+<h2>5 Day Forecast</h2>
+<div class="day-tabs" id="dayTabs"></div>
+<div class="forecast" id="forecast"></div>
+</div>
+
+</div>
+
+
+<div class="profile-badge">
+<img src="profile.png" alt="Profile">
+<p class="profile-name">Piyush Kumar Barnwal</p>
+</div>
+
+<script>
+const apiKey="a8b461fcbbc88d4489c39a7aee4d1250";
+let isCelsius=true,daysCache={};
+
+searchBtn.onclick=()=>cityInput.value&&getWeather(cityInput.value);
+
+unitToggle.onclick=()=>{
+isCelsius=!isCelsius;
+unitToggle.innerText=isCelsius?"Switch to °F":"Switch to °C";
+if(cityInput.value)getWeather(cityInput.value);
+};
+
+async function getWeather(city){
+const unit=isCelsius?"metric":"imperial";
+const d=await (await fetch(`https://api.openweathermap.org/data/2.5/weather?q=${city}&appid=${apiKey}&units=${unit}`)).json();
+updateUI(d);
+applyTheme(d.weather[0].main);
+applyLifeAdvice(d.weather[0].main);
+getForecast(city);
+}
+
+function updateUI(d){
+cityName.innerText=d.name;
+temperature.innerText=`Temp: ${Math.round(d.main.temp)}°`;
+feelsLike.innerText=`Feels: ${Math.round(d.main.feels_like)}°`;
+description.innerText=d.weather[0].description;
+humidity.innerText=`Humidity: ${d.main.humidity}%`;
+wind.innerText=`Wind: ${d.wind.speed} m/s`;
+weatherIcon.src=`https://openweathermap.org/img/wn/${d.weather[0].icon}@2x.png`;
+}
+
+function applyTheme(c){
+c=c.toLowerCase();
+if(c.includes("clear"))document.body.style.background="linear-gradient(to right,#f7971e,#ffd200)";
+else if(c.includes("cloud"))document.body.style.background="linear-gradient(to right,#757F9A,#D7DDE8)";
+else if(c.includes("rain")||c.includes("drizzle"))document.body.style.background="linear-gradient(to right,#1e3c72,#2a5298)";
+else if(c.includes("snow"))document.body.style.background="linear-gradient(to right,#83a4d4,#b6fbff)";
+else document.body.style.background="linear-gradient(to right,#667eea,#764ba2)";
+}
+
+function applyLifeAdvice(c){
+lifeAdvice.style.display="none";
+c=c.toLowerCase();
+if(c.includes("rain")){
+lifeAdvice.innerHTML="☔ Rain expected! Carry an umbrella.";
+lifeAdvice.style.display="block";
+}
+else if(c.includes("clear")||c.includes("sun")){
+lifeAdvice.innerHTML="🧴 Sunny day! Apply sunscreen before going out.";
+lifeAdvice.style.display="block";
+}
+}
+
+async function getForecast(city){
+const unit=isCelsius?"metric":"imperial";
+const data=await (await fetch(`https://api.openweathermap.org/data/2.5/forecast?q=${city}&appid=${apiKey}&units=${unit}`)).json();
+daysCache={};dayTabs.innerHTML="";forecast.innerHTML="";
+data.list.forEach(x=>{
+const d=x.dt_txt.split(" ")[0];
+if(!daysCache[d])daysCache[d]=[];
+daysCache[d].push(x);
+});
+Object.keys(daysCache).slice(0,5).forEach((d,i)=>{
+const tab=document.createElement("div");
+tab.className="day-tab"+(i==0?" active":"");
+tab.innerText=new Date(d).toDateString().slice(0,10);
+tab.onclick=()=>showDay(d,tab);
+dayTabs.appendChild(tab);
+});
+showDay(Object.keys(daysCache)[0],document.querySelector(".day-tab"));
+}
+
+function showDay(date,tab){
+document.querySelectorAll(".day-tab").forEach(t=>t.classList.remove("active"));
+tab.classList.add("active");
+forecast.innerHTML="";
+daysCache[date].forEach(t=>{
+forecast.innerHTML+=`
+<div class="time-box">
+<p>${t.dt_txt.split(" ")[1].slice(0,5)}</p>
+<img src="https://openweathermap.org/img/wn/${t.weather[0].icon}.png">
+<p>${Math.round(t.main.temp)}°</p>
+</div>`;
+});
+drawGraph(daysCache[date].slice(0,8));
+}
+
+function drawGraph(arr){
+const c=tempGraph,ctx=c.getContext("2d");
+c.width=c.offsetWidth;c.height=220;ctx.clearRect(0,0,c.width,c.height);
+const temps=arr.map(x=>x.main.temp),labels=arr.map(x=>x.dt_txt.split(" ")[1].slice(0,5));
+const max=Math.max(...temps),min=Math.min(...temps),pad=30;
+ctx.beginPath();ctx.strokeStyle="#fff";
+temps.forEach((t,i)=>{
+const x=pad+i*(c.width-2*pad)/(temps.length-1);
+const y=c.height-pad-((t-min)/(max-min))*(c.height-2*pad);
+i?ctx.lineTo(x,y):ctx.moveTo(x,y);
+ctx.fillText(labels[i],x-12,c.height-8);
+ctx.fillText(Math.round(t)+"°",x-12,y-8);
+});
+ctx.stroke();
+}
+
+setInterval(()=>dateTime.innerText=new Date().toLocaleString(),1000);
+</script>
+
+</body>
+</html>
